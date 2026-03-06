@@ -5,6 +5,15 @@ $sourceNapcatDir = Join-Path $root '.runtime\NapCatQQ'
 $deployNapcatDir = Join-Path $env:LOCALAPPDATA 'CodexNapCatQQ'
 $qqInstallDir = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Tencent\QQNT' -ErrorAction SilentlyContinue).Install
 
+function Test-PortListening {
+  param(
+    [int]$Port
+  )
+
+  $connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+  return $null -ne $connection
+}
+
 if (!$qqInstallDir) {
   $qqUninstall = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\QQ').UninstallString
   $qqInstallDir = (Split-Path (($qqUninstall -replace '"', '') -replace '\\\\', '\') -Parent)
@@ -18,6 +27,11 @@ if (!(Test-Path $sourceNapcatDir)) {
 
 if (!(Test-Path $qqPath)) {
   throw "QQ executable not found: $qqPath"
+}
+
+if (Test-PortListening -Port 6099) {
+  Write-Output 'NapCat WebUI is already listening on 127.0.0.1:6099. Skipping a duplicate start.'
+  exit 0
 }
 
 New-Item -ItemType Directory -Force -Path $deployNapcatDir | Out-Null

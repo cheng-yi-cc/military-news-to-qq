@@ -77,6 +77,25 @@ Run the full Windows daily entrypoint with NapCat startup and login diagnostics:
 npm.cmd run daily
 ```
 
+Prepare or update the local NapCat runtime:
+
+```powershell
+npm.cmd run napcat:install
+```
+
+Bootstrap an always-on Windows cloud host:
+
+```powershell
+npm.cmd run cloud:bootstrap
+```
+
+Register or remove the cloud scheduled tasks manually:
+
+```powershell
+npm.cmd run cloud:register
+npm.cmd run cloud:unregister
+```
+
 Force a same-day resend:
 
 ```powershell
@@ -90,6 +109,12 @@ node .\src\index.mjs --force
 - After QQ is logged in successfully, NapCat should expose:
   - WebUI: `http://127.0.0.1:6099`
   - OneBot HTTP: `http://127.0.0.1:3000`
+
+## Windows Cloud Host
+
+See:
+
+`docs/CLOUD-WINDOWS.md`
 
 ## State
 

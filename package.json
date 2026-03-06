@@ -10,7 +10,11 @@
     "preview": "node ./src/index.mjs --preview-candidates",
     "check": "node --check ./src/index.mjs",
     "qq:status": "powershell -ExecutionPolicy Bypass -File ./scripts/qq-status.ps1",
-    "daily": "powershell -ExecutionPolicy Bypass -File ./scripts/run-daily.ps1"
+    "daily": "powershell -ExecutionPolicy Bypass -File ./scripts/run-daily.ps1",
+    "napcat:install": "powershell -ExecutionPolicy Bypass -File ./scripts/install-napcat.ps1",
+    "cloud:bootstrap": "powershell -ExecutionPolicy Bypass -File ./scripts/bootstrap-cloud.ps1",
+    "cloud:register": "powershell -ExecutionPolicy Bypass -File ./scripts/register-cloud-tasks.ps1",
+    "cloud:unregister": "powershell -ExecutionPolicy Bypass -File ./scripts/unregister-cloud-tasks.ps1"
   },
   "engines": {
     "node": ">=20"

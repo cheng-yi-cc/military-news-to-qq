@@ -3,9 +3,41 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $napcatDeployDir = Join-Path $env:LOCALAPPDATA 'CodexNapCatQQ'
 
+function Get-NpmCommandPath {
+  $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+  if ($npmCommand) {
+    return $npmCommand.Source
+  }
+
+  $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+  if ($nodeCommand) {
+    $candidate = Join-Path (Split-Path $nodeCommand.Source -Parent) 'npm.cmd'
+    if (Test-Path $candidate) {
+      return $candidate
+    }
+  }
+
+  foreach ($candidate in @(
+    'D:\npm.cmd',
+    (Join-Path $env:ProgramFiles 'nodejs\npm.cmd'),
+    (Join-Path ${env:ProgramFiles(x86)} 'nodejs\npm.cmd')
+  )) {
+    if ($candidate -and (Test-Path $candidate)) {
+      return $candidate
+    }
+  }
+
+  throw 'npm.cmd was not found.'
+}
+
 function Get-WebUiCredential {
-  $webUiConfigPath = Join-Path $napcatDeployDir 'config\webui.json'
-  if (!(Test-Path $webUiConfigPath)) {
+  $configCandidates = @(
+    (Join-Path $napcatDeployDir 'webui.json'),
+    (Join-Path $napcatDeployDir 'config\webui.json')
+  )
+
+  $webUiConfigPath = $configCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (!$webUiConfigPath) {
     return $null
   }
 
@@ -90,7 +122,8 @@ if (!(Test-PortListening -Port 3000)) {
 
 Push-Location $root
 try {
-  & npm.cmd run run
+  $npmPath = Get-NpmCommandPath
+  & $npmPath run run
 } finally {
   Pop-Location
 }

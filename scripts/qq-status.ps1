@@ -13,8 +13,13 @@ function Test-PortListening {
 }
 
 function Get-WebUiCredential {
-  $webUiConfigPath = Join-Path $napcatDeployDir 'config\webui.json'
-  if (!(Test-Path $webUiConfigPath)) {
+  $configCandidates = @(
+    (Join-Path $napcatDeployDir 'webui.json'),
+    (Join-Path $napcatDeployDir 'config\webui.json')
+  )
+
+  $webUiConfigPath = $configCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (!$webUiConfigPath) {
     return $null
   }
 
