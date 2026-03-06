@@ -1,0 +1,24 @@
+{
+  "name": "military-news-to-qq",
+  "version": "0.1.0",
+  "description": "Daily military and geopolitics news digest sender for QQ groups.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "run": "node ./src/index.mjs",
+    "dry-run": "node ./src/index.mjs --dry-run",
+    "preview": "node ./src/index.mjs --preview-candidates",
+    "check": "node --check ./src/index.mjs",
+    "qq:status": "powershell -ExecutionPolicy Bypass -File ./scripts/qq-status.ps1",
+    "daily": "powershell -ExecutionPolicy Bypass -File ./scripts/run-daily.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1",
+    "fast-xml-parser": "^5.4.2",
+    "openai": "^6.27.0"
+  }
+}
