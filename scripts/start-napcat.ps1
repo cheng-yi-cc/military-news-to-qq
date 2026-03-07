@@ -4,6 +4,58 @@ $root = Split-Path -Parent $PSScriptRoot
 $sourceNapcatDir = Join-Path $root '.runtime\NapCatQQ'
 $deployNapcatDir = Join-Path $env:LOCALAPPDATA 'CodexNapCatQQ'
 $qqInstallDir = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Tencent\QQNT' -ErrorAction SilentlyContinue).Install
+$envFile = Join-Path $root '.env'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+function Read-EnvMap {
+  param(
+    [string]$Path
+  )
+
+  $map = @{}
+  if (!(Test-Path $Path)) {
+    return $map
+  }
+
+  foreach ($line in Get-Content $Path) {
+    if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('#')) {
+      continue
+    }
+
+    $parts = $line -split '=', 2
+    if ($parts.Length -ne 2) {
+      continue
+    }
+
+    $map[$parts[0].Trim()] = $parts[1]
+  }
+
+  return $map
+}
+
+function Get-QuickLoginUin {
+  $envMap = Read-EnvMap $envFile
+  $configuredUin = [string]$envMap['NAPCAT_QUICK_LOGIN_UIN']
+  if ($configuredUin -match '^\d+$') {
+    return $configuredUin
+  }
+
+  $configDir = Join-Path $deployNapcatDir 'config'
+  if (!(Test-Path $configDir)) {
+    return ''
+  }
+
+  $detectedFile = Get-ChildItem $configDir -Filter 'napcat_*.json' -ErrorAction SilentlyContinue |
+    Where-Object { $_.BaseName -match '^napcat_(\d+)$' } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+  if ($detectedFile -and $detectedFile.BaseName -match '^napcat_(\d+)$') {
+    return $matches[1]
+  }
+
+  return ''
+}
 
 function Test-PortListening {
   param(
@@ -57,6 +109,13 @@ $mainUrl = $mainPath -replace '\\', '/'
 $loadContent = @"
 (async () => {await import("file:///$mainUrl")})()
 "@
-Set-Content -Path $loadPath -Value $loadContent -Encoding UTF8
+[System.IO.File]::WriteAllText($loadPath, $loadContent, $utf8NoBom)
 
-Start-Process -FilePath $launcherPath -ArgumentList @($qqPath, $injectPath) -WorkingDirectory $deployNapcatDir
+$argumentList = @($qqPath, $injectPath)
+$quickLoginUin = Get-QuickLoginUin
+if ($quickLoginUin) {
+  $argumentList += @('-q', $quickLoginUin)
+  Write-Output "Using NapCat quick login account: $quickLoginUin"
+}
+
+Start-Process -FilePath $launcherPath -ArgumentList $argumentList -WorkingDirectory $deployNapcatDir

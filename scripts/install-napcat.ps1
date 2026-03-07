@@ -10,6 +10,7 @@ $runtimeDir = Join-Path $root '.runtime\NapCatQQ'
 $tmpDir = Join-Path $root '.tmp\napcat'
 $envFile = Join-Path $root '.env'
 $envExampleFile = Join-Path $root '.env.example'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Read-EnvMap {
   param(
@@ -65,7 +66,16 @@ function Set-EnvValue {
     $lines += "$Key=$Value"
   }
 
-  Set-Content -Path $Path -Value $lines -Encoding UTF8
+  [System.IO.File]::WriteAllText($Path, ($lines -join [Environment]::NewLine), $utf8NoBom)
+}
+
+function Write-Utf8NoBom {
+  param(
+    [string]$Path,
+    [string]$Content
+  )
+
+  [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
 }
 
 function Get-QQInstallDir {
@@ -98,6 +108,28 @@ function Get-CurrentQQVersion {
   return $version
 }
 
+function Get-DetectedQuickLoginUin {
+  param(
+    [string]$DeployDir
+  )
+
+  $configDir = Join-Path $DeployDir 'config'
+  if (!(Test-Path $configDir)) {
+    return ''
+  }
+
+  $detectedFile = Get-ChildItem $configDir -Filter 'napcat_*.json' -ErrorAction SilentlyContinue |
+    Where-Object { $_.BaseName -match '^napcat_(\d+)$' } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+  if ($detectedFile -and $detectedFile.BaseName -match '^napcat_(\d+)$') {
+    return $matches[1]
+  }
+
+  return ''
+}
+
 function New-Token {
   return [guid]::NewGuid().ToString('N')
 }
@@ -114,6 +146,7 @@ $envMap = Read-EnvMap $envFile
 $webUiToken = $envMap['NAPCAT_WEBUI_TOKEN']
 $oneBotToken = $envMap['QQ_API_ACCESS_TOKEN']
 $baseUrlValue = $envMap['QQ_API_BASE_URL']
+$quickLoginUin = $envMap['NAPCAT_QUICK_LOGIN_UIN']
 
 if ([string]::IsNullOrWhiteSpace($baseUrlValue)) {
   $baseUrlValue = 'http://127.0.0.1:3000'
@@ -128,6 +161,13 @@ if ([string]::IsNullOrWhiteSpace($oneBotToken)) {
 if ([string]::IsNullOrWhiteSpace($webUiToken)) {
   $webUiToken = New-Token
   Set-EnvValue -Path $envFile -Key 'NAPCAT_WEBUI_TOKEN' -Value $webUiToken
+}
+
+if ([string]::IsNullOrWhiteSpace($quickLoginUin)) {
+  $quickLoginUin = Get-DetectedQuickLoginUin -DeployDir (Join-Path $env:LOCALAPPDATA 'CodexNapCatQQ')
+  if ($quickLoginUin) {
+    Set-EnvValue -Path $envFile -Key 'NAPCAT_QUICK_LOGIN_UIN' -Value $quickLoginUin
+  }
 }
 
 $baseUri = [Uri]$baseUrlValue
@@ -193,7 +233,7 @@ if ([string]$qqntConfig.linuxVersion -match '^(.*)-\d+$') {
   $qqntConfig.linuxVersion = "$($matches[1])-$buildVersion"
 }
 $qqntConfig.main = './loadNapCat.js'
-$qqntConfig | ConvertTo-Json -Depth 20 | Set-Content -Path $qqntPath -Encoding UTF8
+Write-Utf8NoBom -Path $qqntPath -Content ($qqntConfig | ConvertTo-Json -Depth 20)
 
 $configDir = Join-Path $runtimeDir 'config'
 New-Item -ItemType Directory -Force -Path $configDir | Out-Null
@@ -203,7 +243,7 @@ $webUiConfig = @{
   port = 6099
   token = $webUiToken
   loginRate = 10
-  autoLoginAccount = ''
+  autoLoginAccount = $quickLoginUin
   theme = @{
     fontMode = 'system'
     dark = @{}
@@ -243,10 +283,10 @@ $oneBotConfig = @{
   imageDownloadProxy = ''
 }
 
-$webUiConfig | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $configDir 'webui.json') -Encoding UTF8
-$oneBotConfig | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $configDir 'onebot11.json') -Encoding UTF8
-$webUiConfig | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $runtimeDir 'webui.json') -Encoding UTF8
-$oneBotConfig | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $runtimeDir 'onebot11.json') -Encoding UTF8
+Write-Utf8NoBom -Path (Join-Path $configDir 'webui.json') -Content ($webUiConfig | ConvertTo-Json -Depth 20)
+Write-Utf8NoBom -Path (Join-Path $configDir 'onebot11.json') -Content ($oneBotConfig | ConvertTo-Json -Depth 20)
+Write-Utf8NoBom -Path (Join-Path $runtimeDir 'webui.json') -Content ($webUiConfig | ConvertTo-Json -Depth 20)
+Write-Utf8NoBom -Path (Join-Path $runtimeDir 'onebot11.json') -Content ($oneBotConfig | ConvertTo-Json -Depth 20)
 
 Write-Output "NapCat runtime prepared at $runtimeDir"
 Write-Output "QQ version pinned to $qqVersion"
