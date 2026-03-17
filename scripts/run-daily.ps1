@@ -2,6 +2,11 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $napcatDeployDir = Join-Path $env:LOCALAPPDATA 'CodexNapCatQQ'
+$logDir = Join-Path $root '.runtime\logs'
+$logFile = Join-Path $logDir ("daily-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
+
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+Start-Transcript -Path $logFile -Force | Out-Null
 
 function Get-NpmCommandPath {
   $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
@@ -99,31 +104,54 @@ function Test-PortListening {
   return $null -ne $connection
 }
 
-if (!(Test-PortListening -Port 3000)) {
-  & (Join-Path $PSScriptRoot 'start-napcat.ps1')
+function Ensure-OneBotReady {
+  $startupScript = Join-Path $PSScriptRoot 'start-napcat.ps1'
+  $firstFailure = $null
 
-  $deadline = (Get-Date).AddSeconds(25)
-  while ((Get-Date) -lt $deadline) {
-    Start-Sleep -Seconds 1
-    if (Test-PortListening -Port 3000) {
-      break
-    }
-  }
-}
-
-if (!(Test-PortListening -Port 3000)) {
-  $loginHint = Get-LoginHint
-  if ($loginHint) {
-    throw "NapCat HTTP server did not start on 127.0.0.1:3000. $loginHint"
+  if (Test-PortListening -Port 3000) {
+    return
   }
 
-  throw 'NapCat HTTP server did not start on 127.0.0.1:3000. QQ login may still be required.'
+  try {
+    & $startupScript -TimeoutSeconds 30
+  } catch {
+    $firstFailure = $_.Exception.Message
+  }
+
+  if (Test-PortListening -Port 3000) {
+    return
+  }
+
+  if ($firstFailure) {
+    Write-Warning "Initial NapCat startup did not bring up OneBot HTTP. $firstFailure"
+  }
+
+  Write-Output 'Retrying NapCat startup with a controlled QQ restart.'
+  & $startupScript -ResetExistingQQ -TimeoutSeconds 40
 }
 
-Push-Location $root
 try {
-  $npmPath = Get-NpmCommandPath
-  & $npmPath run run
+  Ensure-OneBotReady
+
+  if (!(Test-PortListening -Port 3000)) {
+    $loginHint = Get-LoginHint
+    if ($loginHint) {
+      throw "NapCat HTTP server did not start on 127.0.0.1:3000. $loginHint"
+    }
+
+    throw 'NapCat HTTP server did not start on 127.0.0.1:3000. QQ login may still be required.'
+  }
+
+  Push-Location $root
+  try {
+    $npmPath = Get-NpmCommandPath
+    & $npmPath run run
+    if ($LASTEXITCODE -ne 0) {
+      throw "npm run run failed with exit code $LASTEXITCODE."
+    }
+  } finally {
+    Pop-Location
+  }
 } finally {
-  Pop-Location
+  Stop-Transcript | Out-Null
 }

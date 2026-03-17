@@ -105,6 +105,7 @@ node .\src\index.mjs --force
 ## NapCat Notes
 
 - `scripts\start-napcat.ps1` automatically stages NapCat into `%LOCALAPPDATA%\CodexNapCatQQ` before launch. This avoids startup failures caused by workspace paths that contain spaces or non-ASCII characters.
+- The project no longer starts QQ at Windows logon. `scripts\run-daily.ps1` starts or repairs QQ/NapCat only when the daily send task runs.
 - The first run still requires a manual QQ login. If `scripts\run-daily.ps1` reports that QQ login is required, scan the QR code shown in the QQ window or use the QR link printed by the script.
 - After QQ is logged in successfully, NapCat should expose:
   - WebUI: `http://127.0.0.1:6099`

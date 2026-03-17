@@ -1,3 +1,8 @@
+param(
+  [switch]$ResetExistingQQ,
+  [int]$TimeoutSeconds = 30
+)
+
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -66,6 +71,34 @@ function Test-PortListening {
   return $null -ne $connection
 }
 
+function Wait-PortListening {
+  param(
+    [int]$Port,
+    [int]$TimeoutSeconds
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-PortListening -Port $Port) {
+      return $true
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  return (Test-PortListening -Port $Port)
+}
+
+function Stop-ExistingNapCatProcesses {
+  foreach ($imageName in @('QQ.exe', 'NapCatWinBootMain.exe')) {
+    try {
+      & taskkill /F /T /IM $imageName *> $null
+    } catch {
+      continue
+    }
+  }
+}
+
 if (!$qqInstallDir) {
   $qqUninstall = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\QQ').UninstallString
   $qqInstallDir = (Split-Path (($qqUninstall -replace '"', '') -replace '\\\\', '\') -Parent)
@@ -81,9 +114,19 @@ if (!(Test-Path $qqPath)) {
   throw "QQ executable not found: $qqPath"
 }
 
-if (Test-PortListening -Port 6099) {
-  Write-Output 'NapCat WebUI is already listening on 127.0.0.1:6099. Skipping a duplicate start.'
+if (Test-PortListening -Port 3000) {
+  Write-Output 'NapCat OneBot HTTP is already listening on 127.0.0.1:3000. Skipping a duplicate start.'
   exit 0
+}
+
+if ($ResetExistingQQ) {
+  Write-Output 'Restarting existing QQ/NapCat processes to recover OneBot HTTP.'
+  Stop-ExistingNapCatProcesses
+  Start-Sleep -Seconds 2
+}
+
+if ((Test-PortListening -Port 6099) -and -not $ResetExistingQQ) {
+  throw 'NapCat WebUI is already listening on 127.0.0.1:6099, but OneBot HTTP on 127.0.0.1:3000 is unavailable.'
 }
 
 New-Item -ItemType Directory -Force -Path $deployNapcatDir | Out-Null
@@ -119,3 +162,13 @@ if ($quickLoginUin) {
 }
 
 Start-Process -FilePath $launcherPath -ArgumentList $argumentList -WorkingDirectory $deployNapcatDir
+
+if (!(Wait-PortListening -Port 3000 -TimeoutSeconds $TimeoutSeconds)) {
+  if (Test-PortListening -Port 6099) {
+    throw 'NapCat WebUI started, but OneBot HTTP on 127.0.0.1:3000 did not become ready.'
+  }
+
+  throw 'NapCat did not start OneBot HTTP on 127.0.0.1:3000 within the expected time.'
+}
+
+Write-Output 'NapCat OneBot HTTP is listening on 127.0.0.1:3000.'

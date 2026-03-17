@@ -118,4 +118,5 @@ Write-Output "Daily send time: $DailyTime"
 Write-Output 'Next steps:'
 Write-Output '  1. Run npm.cmd run qq:status and scan the QR code once.'
 Write-Output '  2. Enable Windows auto-logon for this account.'
-Write-Output '  3. Disconnect the RDP session without signing out.'
+Write-Output '  3. Keep the user session signed in so the daily task can start QQ/NapCat on demand.'
+Write-Output '  4. Disconnect the RDP session without signing out.'

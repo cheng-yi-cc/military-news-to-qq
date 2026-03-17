@@ -51,11 +51,10 @@ What it does:
 - downloads the latest `NapCat.Shell.zip`
 - writes `webui.json` and `onebot11.json`
 - pins NapCat to the locally installed QQ version
-- registers two scheduled tasks for the current Windows user
+- registers one scheduled task for the current Windows user
 
 Tasks created:
 
-- `MilitaryDigest NapCat Startup`
 - `MilitaryDigest Daily Digest`
 
 ## First login
@@ -87,8 +86,8 @@ After auto-logon is enabled:
 
 - the machine reboots
 - Windows logs that user in automatically
-- `MilitaryDigest NapCat Startup` launches QQ and NapCat
 - `MilitaryDigest Daily Digest` runs every day at the scheduled time
+- the daily task starts QQ and NapCat on demand when it needs to send
 
 ## RDP usage
 
