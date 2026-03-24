@@ -24,17 +24,17 @@ function clipChars(text, maxChars) {
   return chars.length <= maxChars ? chars.join('') : `${chars.slice(0, maxChars).join('')}...`;
 }
 
-function buildInstructions() {
+function buildInstructions(storyCount) {
   return [
     'You are the editor of a Chinese military and geopolitics morning briefing.',
-    'Choose the 5 most globally impactful stories from the candidate list.',
+    `Choose the ${storyCount} most globally impactful stories from the candidate list.`,
     'Prioritize war escalation, military deployment, alliance changes, sanctions, diplomacy, major state decisions, and cross-border security risk.',
     'Ignore sports, entertainment, consumer news, local soft news, marketing copy, and human-interest features.',
     'Each summary_zh must be a single objective Simplified Chinese paragraph with about 130 to 150 Chinese characters.',
     'Do not include source names, links, numbering, quotes, book-title marks, or the original headline wording.',
     'Do not start with phrases like "according to reports".',
     'Return strict JSON only in this format: {"selected":[{"id":"story_1","rank":1,"summary_zh":"..."}]}.',
-    'Return exactly 5 items, and every id must come from the candidate list.',
+    `Return exactly ${storyCount} items, and every id must come from the candidate list.`,
   ].join('\n');
 }
 
@@ -80,7 +80,8 @@ async function runOpenAI(client, config, instructions, shortlist) {
 
 export async function selectStoriesWithModel(candidates, config) {
   const client = buildClient(config);
-  const instructions = buildInstructions();
+  const storyCount = Math.min(config.news.storyCount, candidates.length);
+  const instructions = buildInstructions(storyCount);
 
   const shortlist = candidates.slice(0, config.news.candidateLimit).map((candidate, index) => ({
     id: `story_${index + 1}`,
@@ -100,9 +101,9 @@ export async function selectStoriesWithModel(candidates, config) {
   const parsed = extractJson(rawText);
   const selected = Array.isArray(parsed.selected) ? parsed.selected : [];
 
-  if (selected.length !== config.news.storyCount) {
+  if (selected.length !== storyCount) {
     throw new Error(
-      `Model returned ${selected.length} items, expected ${config.news.storyCount}.`,
+      `Model returned ${selected.length} items, expected ${storyCount}.`,
     );
   }
 

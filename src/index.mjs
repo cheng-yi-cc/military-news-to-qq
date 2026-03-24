@@ -81,8 +81,13 @@ function buildMessage(stories, config) {
   const lines = [
     `【全球军事时政早报｜${headerTime}】`,
     `范围：近 ${config.news.lookbackHours} 小时全球军事与国际时政动态`,
-    '',
   ];
+
+  if (stories.length < config.news.storyCount) {
+    lines.push(`说明：今日符合条件的高质量候选不足 ${config.news.storyCount} 条，本次发送 ${stories.length} 条。`);
+  }
+
+  lines.push('');
 
   for (const [index, story] of stories.entries()) {
     lines.push(`${index + 1}. ${story.title}`);
@@ -95,18 +100,29 @@ function buildMessage(stories, config) {
   return lines.join('\n').trim();
 }
 
-function buildPreview(candidates) {
-  return candidates
-    .map((candidate, index) => {
-      const published = candidate.publishedAt.toISOString();
-      return [
-        `${index + 1}. [${candidate.score.toFixed(2)}] ${candidate.title}`,
-        `   来源：${candidate.source}`,
-        `   时间：${published}`,
-        `   链接：${candidate.link}`,
-      ].join('\n');
-    })
-    .join('\n\n');
+function buildPreview(candidates, config) {
+  const lines = [];
+
+  if (candidates.length < config.news.storyCount) {
+    lines.push(`说明：当前仅找到 ${candidates.length} 条有效候选，少于目标的 ${config.news.storyCount} 条。`);
+    lines.push('');
+  }
+
+  lines.push(
+    candidates
+      .map((candidate, index) => {
+        const published = candidate.publishedAt.toISOString();
+        return [
+          `${index + 1}. [${candidate.score.toFixed(2)}] ${candidate.title}`,
+          `   来源：${candidate.source}`,
+          `   时间：${published}`,
+          `   链接：${candidate.link}`,
+        ].join('\n');
+      })
+      .join('\n\n'),
+  );
+
+  return lines.join('\n');
 }
 
 function buildQqEndpoint(baseUrl, sendGroupPath) {
@@ -173,12 +189,12 @@ async function main() {
   }
 
   const candidates = await collectCandidateArticles(config, state);
-  if (candidates.length < config.news.storyCount) {
-    throw new Error(`候选新闻不足，仅找到 ${candidates.length} 条有效候选。`);
+  if (candidates.length === 0) {
+    throw new Error('候选新闻为空，无法生成早报。');
   }
 
   if (flags.previewCandidates) {
-    console.log(buildPreview(candidates));
+    console.log(buildPreview(candidates, config));
     return;
   }
 
